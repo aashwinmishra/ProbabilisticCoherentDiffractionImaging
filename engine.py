@@ -101,6 +101,16 @@ def train(model: torch.nn.module,
   Returns:
     Dict with history of "total_loss", "amp_loss" and "phase_loss".
   """
-  pass
+  amp_loss_train, phi_loss_train, amp_loss_val, phi_loss_val = [], [], [], []
+  for epoch in range(num_epochs):
+    train_results = train_step(model, train_dl, loss_fn, opt, device)
+    val_results = val_step(model, val_dl, loss_fn, device)
+    amp_loss_train.append(train_results["amp_loss"])
+    phi_loss_train.append(train_results["phi_loss"])
+    amp_loss_val.append(val_results["amp_loss"])
+    phi_loss_val.append(val_results["phi_loss"])
+    print(f"Epoch: {epoch+1} Train Amp: {amp_loss_train[-1]} Train Phi: {phi_loss_train[-1]} Val Amp: {amp_loss_val[-1]} Val Phi: {phi_loss_val[-1]}")
   
+  return {"amp_loss_train": amp_loss_train, "phi_loss_train": phi_loss_train,
+          "amp_loss_val": amp_loss_val, "phi_loss_val": phi_loss_val}
 
