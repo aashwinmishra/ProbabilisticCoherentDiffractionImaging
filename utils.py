@@ -37,8 +37,8 @@ def save_model(model_dir: str, model_name: str, model: torch.nn.Module):
   torch.save(model.state_dict(), os.path.join(model_dir, model_name))
 
 
-def create_summary_writer(experiment_name: str, model_name: str, extras: str = None) \
-        -> torch.utils.tensorboard.SummaryWriter:
+def create_summary_writer(experiment_name: str, model_name: str, extras: str = None):
+        # -> torch.utils.tensorboard.SummaryWriter:
   """
   Instantiates and returns a Summary writer for the experiment, that writers to
   runs/experiment_name/model_name/extras
