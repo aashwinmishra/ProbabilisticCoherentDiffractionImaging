@@ -6,7 +6,7 @@ import torch.nn as nn
 
 
 def train_step(model: torch.nn.Module,
-               train_dl: torch.utils.data.Dataloader,
+               train_dl: torch.utils.data.DataLoader,
                loss_fn: torch.nn.Module,
                opt: torch.optim.Optimizer,
                device: torch.device
@@ -30,7 +30,7 @@ def train_step(model: torch.nn.Module,
     pred_amps, pred_phis = model(ft_images)
     amp_loss = loss_fn(pred_amps, amps)
     phi_loss = loss_fn(pred_phis, phis)
-    loss = amp_loss + phi_loss 
+    loss = amp_loss + phi_loss
     opt.zero_grad()
     loss.backward()
     opt.step()
@@ -40,13 +40,13 @@ def train_step(model: torch.nn.Module,
     phase_loss += phi_loss.detach().item()
 
   model.eval()
-  return {"total_loss": total_loss/len(train_dl), 
-          "amp_loss": amplitude_loss/len(train_dl), 
+  return {"total_loss": total_loss/len(train_dl),
+          "amp_loss": amplitude_loss/len(train_dl),
           "phase_loss": phase_loss/len(train_dl)}
 
 
 def val_step(model: torch.nn.Module,
-            val_dl: torch.utils.data.Dataloader,
+            val_dl: torch.utils.data.DataLoader,
             loss_fn: torch.nn.Module,
             device: torch.device
             ) -> dict:
@@ -69,18 +69,18 @@ def val_step(model: torch.nn.Module,
       pred_amps, pred_phis = model(ft_images)
       amp_loss = loss_fn(pred_amps, amps)
       phi_loss = loss_fn(pred_phis, phis)
-      loss = amp_loss + phi_loss 
+      loss = amp_loss + phi_loss
 
       total_loss += loss.detach().item()
       amplitude_loss += amp_loss.detach().item()
       phase_loss += phi_loss.detach().item()
 
-  return {"total_loss": total_loss/len(val_dl), 
-          "amp_loss": amplitude_loss/len(val_dl), 
+  return {"total_loss": total_loss/len(val_dl),
+          "amp_loss": amplitude_loss/len(val_dl),
           "phase_loss": phase_loss/len(val_dl)}
 
 
-def train(model: torch.nn.module,
+def train(model: torch.nn.Module,
           train_dl: torch.utils.data.DataLoader,
           val_dl: torch.utils.data.DataLoader,
           loss_fn: torch.nn.Module,
@@ -106,11 +106,11 @@ def train(model: torch.nn.module,
     train_results = train_step(model, train_dl, loss_fn, opt, device)
     val_results = val_step(model, val_dl, loss_fn, device)
     amp_loss_train.append(train_results["amp_loss"])
-    phi_loss_train.append(train_results["phi_loss"])
+    phi_loss_train.append(train_results["phase_loss"])
     amp_loss_val.append(val_results["amp_loss"])
-    phi_loss_val.append(val_results["phi_loss"])
+    phi_loss_val.append(val_results["phase_loss"])
     print(f"Epoch: {epoch+1} Train Amp: {amp_loss_train[-1]} Train Phi: {phi_loss_train[-1]} Val Amp: {amp_loss_val[-1]} Val Phi: {phi_loss_val[-1]}")
-  
+
   return {"amp_loss_train": amp_loss_train, "phi_loss_train": phi_loss_train,
           "amp_loss_val": amp_loss_val, "phi_loss_val": phi_loss_val}
 
