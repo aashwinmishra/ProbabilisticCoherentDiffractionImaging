@@ -3,15 +3,15 @@ Classes for models to be trained.
 """
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 
-
-def contraction_block(in_channels: int, 
-                      mid_channels: int, 
-                      out_channels: int, 
-                      kernel_size: int=3, 
-                      stride: int=1, 
-                      padding: int=1, 
+def contraction_block(in_channels: int,
+                      mid_channels: int,
+                      out_channels: int,
+                      kernel_size: int=3,
+                      stride: int=1,
+                      padding: int=1,
                       pool_factor:int=2) -> nn.Module:
   """
   Creates a constituent Conv block for the encoder section of the ptychoNN model.
@@ -36,12 +36,12 @@ def contraction_block(in_channels: int,
   )
 
 
-def expansion_block(in_channels: int, 
-                    mid_channels: int, 
-                    out_channels: int, 
-                    kernel_size: int=3, 
-                    stride: int=1, 
-                    padding: int=1, 
+def expansion_block(in_channels: int,
+                    mid_channels: int,
+                    out_channels: int,
+                    kernel_size: int=3,
+                    stride: int=1,
+                    padding: int=1,
                     upsamling_factor:int=2) -> nn.Module:
     """
   Creates a constituent Conv block for the decoder sections of the ptychoNN model.
@@ -64,7 +64,7 @@ def expansion_block(in_channels: int,
       nn.ReLU(),
       nn.Upsample(scale_factor=upsamling_factor, mode='bilinear')
       )
-  
+
 
 class PtychoNNBase(nn.Module):
   """
@@ -98,6 +98,63 @@ class PtychoNNBase(nn.Module):
     encoded = self.encoder(x)
     amps = self.amplitude_decoder(encoded)
     phis = self.phase_decoder(encoded)
-    phis = phis * np.pi 
+    phis = phis * np.pi
     return amps, phis
+
+
+
+
+class PtychoNN(nn.Module):
+  """
+  Defines the deterministic version of the PtychoNN model
+  Attributes:
+    nconv: number of feature maps from the first conv layer.
+  """
+  def __init__(self, nconv: int=32, **kwargs):
+    super().__init__(**kwargs)
+    self.encoder = nn.Sequential(
+        contraction_block(in_channels=1, mid_channels=nconv, out_channels=nconv),
+        contraction_block(in_channels=nconv, mid_channels=2*nconv, out_channels=2*nconv),
+        contraction_block(in_channels=2*nconv, mid_channels=4*nconv, out_channels=4*nconv)
+    )
+    self.amplitude_decoder = nn.Sequential(
+        expansion_block(in_channels=4*nconv, mid_channels=4*nconv, out_channels=4*nconv),
+        expansion_block(in_channels=4*nconv, mid_channels=2*nconv, out_channels=2*nconv),
+        expansion_block(in_channels=2*nconv, mid_channels=2*nconv, out_channels=2*nconv),
+        nn.Conv2d(in_channels=2*nconv, out_channels=1, kernel_size=3, stride=1, padding=1),
+        nn.Sigmoid()
+    )
+    self.phase_decoder = nn.Sequential(
+        expansion_block(in_channels=4*nconv, mid_channels=4*nconv, out_channels=4*nconv),
+        expansion_block(in_channels=4*nconv, mid_channels=2*nconv, out_channels=2*nconv),
+        expansion_block(in_channels=2*nconv, mid_channels=2*nconv, out_channels=2*nconv),
+        nn.Conv2d(in_channels=2*nconv, out_channels=1, kernel_size=3, stride=1, padding=1),
+        nn.Tanh()
+    )
+
+  def forward(self, x):
+    encoded = self.encoder(x)
+    amps = self.amplitude_decoder(encoded)
+    phis = self.phase_decoder(encoded)
+    phis = phis * np.pi
+    return amps, phis
+
+  def train_step(self, ft_images, amps, phis):
+    pred_amps, pred_phis = self(ft_images)
+    amp_loss = F.mse_loss(pred_amps, amps)
+    phi_loss = F.mse_loss(pred_phis, phis)
+    amp_metric = F.l1_loss(pred_amps, amps)
+    phi_metric = F.l1_loss(pred_phis, phis)
+
+    return amp_loss, phi_loss, amp_metric, phi_metric
+
+  def eval_step(self, ft_images, amps, phis):
+    pred_amps, pred_phis = self(ft_images)
+    amp_loss = F.mse_loss(pred_amps, amps)
+    phi_loss = F.mse_loss(pred_phis, phis)
+    amp_metric = F.l1_loss(pred_amps, amps)
+    phi_metric = F.l1_loss(pred_phis, phis)
+
+    return amp_loss, phi_loss, amp_metric, phi_metric
+
 
