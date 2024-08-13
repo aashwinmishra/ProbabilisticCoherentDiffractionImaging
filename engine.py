@@ -7,7 +7,6 @@ import torch.nn as nn
 
 def train_step(model: torch.nn.Module,
                train_dl: torch.utils.data.DataLoader,
-               loss_fn: torch.nn.Module,
                opt: torch.optim.Optimizer,
                device: torch.device
                ) -> dict:
@@ -17,37 +16,35 @@ def train_step(model: torch.nn.Module,
   Args:
     model: model too be trained
     train_dl: Dataloader with training data
-    loss_fn: Differentiable loss function to be used for gradients
     opt: Optimizer to train model.
     device: Device on which model and data will reside.
   Returns:
-      Dict with keys "total_loss", "amp_loss" and "phase_loss".
+      Dict with keys "amp_loss", "phase_loss", "amp_metric", "phase_metric".
   """
   model.train()
-  total_loss, amplitude_loss, phase_loss = 0.0, 0.0, 0.0
+  amplitude_loss, phase_loss, amplitude_metric, phase_metric = 0.0, 0.0, 0.0, 0.0
   for ft_images, amps, phis in train_dl:
     ft_images, amps, phis = ft_images.to(device), amps.to(device), phis.to(device)
-    pred_amps, pred_phis = model(ft_images)
-    amp_loss = loss_fn(pred_amps, amps)
-    phi_loss = loss_fn(pred_phis, phis)
+    amp_loss, phi_loss, amp_metric, phi_metric = model.train_step(ft_images, amps, phis)
     loss = amp_loss + phi_loss
     opt.zero_grad()
     loss.backward()
     opt.step()
 
-    total_loss += loss.detach().item()
     amplitude_loss += amp_loss.detach().item()
     phase_loss += phi_loss.detach().item()
+    amplitude_metric += amp_metric.detach().item()
+    phase_metric += phi_metric.detach().item()
 
   model.eval()
-  return {"total_loss": total_loss/len(train_dl),
-          "amp_loss": amplitude_loss/len(train_dl),
-          "phase_loss": phase_loss/len(train_dl)}
+  return {"amp_loss": amplitude_loss/len(train_dl),
+          "phase_loss": phase_loss/len(train_dl),
+          "amp_metric": amplitude_metric/len(train_dl),
+          "phase_metric": phase_metric/len(train_dl)}
 
 
 def val_step(model: torch.nn.Module,
             val_dl: torch.utils.data.DataLoader,
-            loss_fn: torch.nn.Module,
             device: torch.device
             ) -> dict:
   """
@@ -56,34 +53,32 @@ def val_step(model: torch.nn.Module,
   Args:
     model: model too be trained
     train_dl: Dataloader with training data
-    loss_fn: Loss function to be used for gradients
     device: Device on which model and data will reside.
   Returns:
       Dict with keys "total_loss", "amp_loss" and "phase_loss".
   """
   model.eval()
-  total_loss, amplitude_loss, phase_loss = 0.0, 0.0, 0.0
+  amplitude_loss, phase_loss, amplitude_metric, phase_metric = 0.0, 0.0, 0.0, 0.0
   with torch.inference_mode():
     for ft_images, amps, phis in val_dl:
       ft_images, amps, phis = ft_images.to(device), amps.to(device), phis.to(device)
-      pred_amps, pred_phis = model(ft_images)
-      amp_loss = loss_fn(pred_amps, amps)
-      phi_loss = loss_fn(pred_phis, phis)
+      amp_loss, phi_loss, amp_metric, phi_metric = model.eval_step(ft_images, amps, phis)
       loss = amp_loss + phi_loss
 
-      total_loss += loss.detach().item()
       amplitude_loss += amp_loss.detach().item()
       phase_loss += phi_loss.detach().item()
+      amplitude_metric += amp_metric.detach().item()
+      phase_metric += phi_metric.detach().item()
 
-  return {"total_loss": total_loss/len(val_dl),
-          "amp_loss": amplitude_loss/len(val_dl),
-          "phase_loss": phase_loss/len(val_dl)}
+  return {"amp_loss": amplitude_loss/len(val_dl),
+          "phase_loss": phase_loss/len(val_dl),
+          "amp_metric": amplitude_metric/len(val_dl),
+          "phase_metric": phase_metric/len(val_dl)}
 
 
 def train(model: torch.nn.Module,
           train_dl: torch.utils.data.DataLoader,
           val_dl: torch.utils.data.DataLoader,
-          loss_fn: torch.nn.Module,
           opt: torch.optim.Optimizer,
           device: torch.device,
           num_epochs: int) -> dict:
@@ -94,7 +89,6 @@ def train(model: torch.nn.Module,
     model: model to be trained and evaluated.
     train_dl: Dataloader with training data.
     val_dl: Dataloader with testing data.
-    loss_fn: Differentiable loss function to use for gradients.
     opt: Optimizer to tune model params.
     device: Device on which model and eventually data shall reside
     num_epochs: Number of epochs of training
@@ -102,15 +96,23 @@ def train(model: torch.nn.Module,
     Dict with history of "total_loss", "amp_loss" and "phase_loss".
   """
   amp_loss_train, phi_loss_train, amp_loss_val, phi_loss_val = [], [], [], []
+  amp_metric_train, phi_metric_train, amp_metric_val, phi_metric_val = [], [], [], []
   for epoch in range(num_epochs):
-    train_results = train_step(model, train_dl, loss_fn, opt, device)
-    val_results = val_step(model, val_dl, loss_fn, device)
+    train_results = train_step(model, train_dl, opt, device)
+    val_results = val_step(model, val_dl, device)
     amp_loss_train.append(train_results["amp_loss"])
     phi_loss_train.append(train_results["phase_loss"])
     amp_loss_val.append(val_results["amp_loss"])
     phi_loss_val.append(val_results["phase_loss"])
-    print(f"Epoch: {epoch+1} Train Amp: {amp_loss_train[-1]} Train Phi: {phi_loss_train[-1]} Val Amp: {amp_loss_val[-1]} Val Phi: {phi_loss_val[-1]}")
+    amp_metric_train.append(train_results["amp_metric"])
+    phi_metric_train.append(train_results["phase_metric"])
+    amp_metric_val.append(val_results["amp_metric"])
+    phi_metric_val.append(val_results["phase_metric"])
+    print(f"Epoch: {epoch+1} Train Amp Loss: {amp_loss_train[-1]} Train Phi Loss: {phi_loss_train[-1]} Val Amp Loss: {amp_loss_val[-1]} Val Phi Loss: {phi_loss_val[-1]}")
+    print(f"Epoch: {epoch+1} Train Amp Metric: {amp_metric_train[-1]} Train Phi Metric: {phi_metric_train[-1]} Val Amp Metric: {amp_metric_val[-1]} Val Phi Metric: {phi_metric_val[-1]}")
 
   return {"amp_loss_train": amp_loss_train, "phi_loss_train": phi_loss_train,
-          "amp_loss_val": amp_loss_val, "phi_loss_val": phi_loss_val}
+          "amp_loss_val": amp_loss_val, "phi_loss_val": phi_loss_val,
+          "amp_metric_train": amp_metric_train, "phi_metric_train": phi_metric_train,
+          "amp_metric_val": amp_metric_val, "phi_metric_val": phi_metric_val}
 
