@@ -1,5 +1,8 @@
 """
-Classes for models to be trained.
+Classes definitions and constructor functions for the models. This includes:
+a) A Basic PtychoNN Deterministic model,
+b) A PtychoPNN Probabilistic model,
+c) A Deep Ensemble model (Lakshminarayanan et al, "Simple and scalable predictive uncertainty estimation using deep ensembles", Neurips (2017)"
 """
 import torch
 import torch.nn as nn
@@ -157,4 +160,77 @@ class PtychoNN(nn.Module):
 
     return amp_loss, phi_loss, amp_metric, phi_metric
 
+
+
+
+class PtychoPNN(nn.Module):
+  """
+  Defines the Probabilistic Neural Network avatar of the PtychoNN model,
+  accounting for epistemic uncertainty in predictions.
+  The loss function is a NLL loss and the metric is an MSE.
+  Attributes:
+    nconv: number of feature maps from the first conv layer.
+  """
+  def __init__(self, nconv: int=32, **kwargs):
+    super().__init__(**kwargs)
+    self.encoder = nn.Sequential(
+        contraction_block(in_channels=1, mid_channels=nconv, out_channels=nconv),
+        contraction_block(in_channels=nconv, mid_channels=2*nconv, out_channels=2*nconv),
+        contraction_block(in_channels=2*nconv, mid_channels=4*nconv, out_channels=4*nconv)
+    )
+    self.amplitude_decoder = nn.Sequential(
+        expansion_block(in_channels=4*nconv, mid_channels=4*nconv, out_channels=4*nconv),
+        expansion_block(in_channels=4*nconv, mid_channels=2*nconv, out_channels=2*nconv),
+        expansion_block(in_channels=2*nconv, mid_channels=2*nconv, out_channels=2*nconv),
+    )
+    self.amplitude_mean_end = nn.Sequential(
+        nn.Conv2d(in_channels=2*nconv, out_channels=1, kernel_size=3, stride=1, padding=1),
+        nn.Sigmoid()
+    )
+    self.amplitude_log_sigma = nn.Sequential(
+        nn.Conv2d(in_channels=2*nconv, out_channels=1, kernel_size=3, stride=1, padding=1)
+    )
+
+    self.phase_decoder = nn.Sequential(
+        expansion_block(in_channels=4*nconv, mid_channels=4*nconv, out_channels=4*nconv),
+        expansion_block(in_channels=4*nconv, mid_channels=2*nconv, out_channels=2*nconv),
+        expansion_block(in_channels=2*nconv, mid_channels=2*nconv, out_channels=2*nconv),
+    )
+    self.phase_mean_end = nn.Sequential(
+        nn.Conv2d(in_channels=2*nconv, out_channels=1, kernel_size=3, stride=1, padding=1),
+        nn.Tanh()
+    )
+    self.phase_log_sigma = nn.Sequential(
+        nn.Conv2d(in_channels=2*nconv, out_channels=1, kernel_size=3, stride=1, padding=1)
+    )
+
+  def forward(self, x):
+    encoded = self.encoder(x)
+    amps_decoded = self.amplitude_decoder(encoded)
+    amps_mean = self.amplitude_mean_end(amps_decoded)
+    amps_logsigma = self.amplitude_log_sigma(amps_decoded)
+    phis_decoded = self.phase_decoder(encoded)
+    phis_mean = self.phase_mean_end(phis_decoded)
+    phis_logsigma = self.phase_log_sigma(phis_decoded)
+    phis_mean = phis_mean * np.pi
+    return amps_mean, amps_logsigma, phis_mean, phis_logsigma
+
+  def train_step(self, ft_images, amps, phis):
+    amps_mean, amps_logsigma, phis_mean, phis_logsigma = self(ft_images)
+
+    amp_loss = F.gaussian_nll_loss(amps_mean, amps, amps_logsigma.exp().square()) #input, target, var
+    phi_loss = F.gaussian_nll_loss(phis_mean, phis, phis_logsigma.exp().square())
+    amp_metric = F.l1_loss(amps_mean, amps)
+    phi_metric = F.l1_loss(phis_mean, phis)
+
+    return amp_loss, phi_loss, amp_metric, phi_metric
+
+  def eval_step(self, ft_images, amps, phis):
+    amps_mean, amps_logsigma, phis_mean, phis_logsigma = self(ft_images)
+    amp_loss = F.gaussian_nll_loss(amps_mean, amps, amps_logsigma.exp().square()) #input, target, var
+    phi_loss = F.gaussian_nll_loss(phis_mean, phis, phis_logsigma.exp().square())
+    amp_metric = F.l1_loss(amps_mean, amps)
+    phi_metric = F.l1_loss(phis_mean, phis)
+
+    return amp_loss, phi_loss, amp_metric, phi_metric
 
