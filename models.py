@@ -170,7 +170,7 @@ class PtychoNN(nn.Module):
 class PtychoPNN(nn.Module):
   """
   Defines the Probabilistic Neural Network avatar of the PtychoNN model,
-  accounting for epistemic uncertainty in predictions.
+  accounting for aleatoric uncertainty in predictions.
   The loss function is a NLL loss and the metric is an MSE.
   Attributes:
     nconv: number of feature maps from the first conv layer.
@@ -240,6 +240,14 @@ class PtychoPNN(nn.Module):
 
 
 class DeepEnsemble(torch.nn.Module):
+  """
+  Defines a Deep Ensemble wrapper for PtychoPNN models,
+  accounting for epistemic and aleatoric uncertainty in predictions.
+  The constituent models are pre-trained and the wrapper just defines a 
+  forward function for the prediction step from Lakshminarayanan et al (2017).
+  Attributes:
+    models: a list of trained PtychoPNN models to form the ensemble.
+  """
   def __init__(self, models: list):
     super().__init__()
     self.models = torch.nn.ModuleList(models)
@@ -249,11 +257,11 @@ class DeepEnsemble(torch.nn.Module):
     Treats the ensemble predictions as a Mixture of Gaussians. Computes the 
     resultant means and variances accordingly
     """
-    amp_mean_preds, amps_var_preds, phi_mean_preds, phi_var_preds = [], [], [], [] 
+    amps_mean_preds, amps_var_preds, phi_mean_preds, phi_var_preds = [], [], [], [] 
     for model in self.models:
       amps_mean, amps_logsigma, phis_mean, phis_logsigma = model(x)
       amps_var, phis_var = amps_logsigma.exp().square(), phis_logsigma.exp().square()
-      amp_mean_preds.append(amps_mean)
+      amps_mean_preds.append(amps_mean)
       amps_var_preds.append(amps_var)
       phi_mean_preds.append(phis_mean)
       phi_var_preds.append(phis_var)
