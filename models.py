@@ -32,8 +32,10 @@ def contraction_block(in_channels: int,
   """
   return nn.Sequential(
       nn.Conv2d(in_channels=in_channels, out_channels=mid_channels, kernel_size=kernel_size, stride=stride, padding=padding),
+      nn.BatchNorm2d(mid_channels),
       nn.ReLU(),
       nn.Conv2d(in_channels=mid_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding),
+      nn.BatchNorm2d(out_channels),
       nn.ReLU(),
       nn.MaxPool2d(pool_factor)
   )
@@ -62,8 +64,10 @@ def expansion_block(in_channels: int,
   """
     return nn.Sequential(
       nn.Conv2d(in_channels=in_channels, out_channels=mid_channels, kernel_size=kernel_size, stride=stride, padding=padding),
+      nn.BatchNorm2d(mid_channels),
       nn.ReLU(),
       nn.Conv2d(in_channels=mid_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding),
+      nn.BatchNorm2d(out_channels),
       nn.ReLU(),
       nn.Upsample(scale_factor=upsamling_factor, mode='bilinear')
       )
@@ -233,4 +237,34 @@ class PtychoPNN(nn.Module):
     phi_metric = F.l1_loss(phis_mean, phis)
 
     return amp_loss, phi_loss, amp_metric, phi_metric
+
+
+class DeepEnsemble(torch.nn.Module):
+  def __init__(self, models: list):
+    super().__init__()
+    self.models = torch.nn.ModuleList(models)
+
+  def forward(self, x):
+    """
+    Treats the ensemble predictions as a Mixture of Gaussians. Computes the 
+    resultant means and variances accordingly
+    """
+    amp_mean_preds, amps_var_preds, phi_mean_preds, phi_var_preds = [], [], [], [] 
+    for model in self.models:
+      amps_mean, amps_logsigma, phis_mean, phis_logsigma = model(x)
+      amps_var, phis_var = amps_logsigma.exp().square(), phis_logsigma.exp().square()
+      amp_mean_preds.append(amps_mean)
+      amps_var_preds.append(amps_var)
+      phi_mean_preds.append(phis_mean)
+      phi_var_preds.append(phis_var)
+
+    amps_mean_preds = torch.stack(amps_mean_preds) #Shape: [M, 64, 1, 64,, 64]
+    amps_var_preds = torch.stack(amps_var_preds)
+    phi_mean_preds = torch.stack(phi_mean_preds)
+    phi_var_preds = torch.stack(phi_var_preds)
+    amps_ens_mean = torch.mean(amps_mean_preds, dim=0) #Shape: [64, 1, 64, 64]
+    phi_ens_mean = torch.mean(phi_mean_preds, dim=0)
+    amps_ens_var = torch.mean(amps_var_preds + amps_mean_preds.square(), dim=0) - amps_ens_mean.square()
+    phi_ens_var = torch.mean(phi_var_preds + phi_mean_preds.square(), dim=0) - phi_ens_mean.square()
+    return amps_ens_mean, amps_ens_var, phi_ens_mean, phi_ens_var
 
