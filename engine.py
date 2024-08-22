@@ -21,6 +21,13 @@ def train_step(model: torch.nn.Module,
   Returns:
       Dict with keys "amp_loss", "phase_loss", "amp_metric", "phase_metric".
   """
+  # iterations_per_epoch = len(train_dl)
+  # step_size = 6*iterations_per_epoch
+  # scheduler = torch.optim.lr_scheduler.CyclicLR(opt, base_lr=0.0001, 
+  #                                               max_lr=0.001, 
+  #                                               step_size_up=step_size, 
+  #                                               cycle_momentum=False, 
+  #                                               mode='triangular2')               
   model.train()
   amplitude_loss, phase_loss, amplitude_metric, phase_metric = 0.0, 0.0, 0.0, 0.0
   for ft_images, amps, phis in train_dl:
@@ -35,6 +42,8 @@ def train_step(model: torch.nn.Module,
     phase_loss += phi_loss.detach().item()
     amplitude_metric += amp_metric.detach().item()
     phase_metric += phi_metric.detach().item()
+
+    #scheduler.step()
 
   model.eval()
   return {"amp_loss": amplitude_loss/len(train_dl),
