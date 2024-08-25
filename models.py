@@ -75,7 +75,10 @@ def expansion_block(in_channels: int,
 
 class PtychoNNBase(nn.Module):
   """
-  Defines the deterministic version of the PtychoNN model
+  Defines the deterministic version of the PtychoNN model.
+  Carries out Ptychographic reconstruction, by mapping Fourier transformed images 
+  to the corresponding intensity and phase maps.
+  
   Attributes:
     nconv: number of feature maps from the first conv layer.
   """
@@ -171,11 +174,21 @@ class PtychoPNN(nn.Module):
   """
   Defines the Probabilistic Neural Network avatar of the PtychoNN model,
   accounting for aleatoric uncertainty in predictions.
+
+  The network still amps images to the intensity and phase maps, But the returns the 
+  log sigma of the predictions as well.
   The loss function is a NLL loss and the metric is an MSE.
+  
   Attributes:
     nconv: number of feature maps from the first conv layer.
   """
   def __init__(self, nconv: int=32, **kwargs):
+    """
+    Initializes the Ptycho PNN.
+
+    Args:
+     nconv: the base number of convolutional filters to define the expansion and contraction sections.
+    """
     super().__init__(**kwargs)
     self.encoder = nn.Sequential(
         contraction_block(in_channels=1, mid_channels=nconv, out_channels=nconv),
@@ -245,10 +258,17 @@ class DeepEnsemble(torch.nn.Module):
   accounting for epistemic and aleatoric uncertainty in predictions.
   The constituent models are pre-trained and the wrapper just defines a 
   forward function for the prediction step from Lakshminarayanan et al (2017).
+  
   Attributes:
     models: a list of trained PtychoPNN models to form the ensemble.
   """
   def __init__(self, models: list):
+    """
+    Initializes the deep ensemble based on the constituent adversirially trained PNNs.
+
+    Args:
+      models: List of trained PNNs.
+    """
     super().__init__()
     self.models = torch.nn.ModuleList(models)
 
