@@ -138,3 +138,20 @@ def predict_and_plot(model: torch.nn.Module,
 
   return amps_mean, amps_var, phis_mean, phis_var
 
+
+def evaluate(model: torch.nn.Module, 
+             test_dl: torch.utils.data.DataLoader, 
+             type: str,
+             device: torch.device):
+    """
+  Takes the test data loader and a model, predicts for entire data.
+  Returns the MAE and MSE metrics over the dataste.
+  Args:
+    model: Trained model 
+    test_dl: Data Loader for the test data
+    type: Type of model (NN, PNN, Ensemble)
+    device: Device of the model
+  Returns:
+    tuple with MAE_amps, MSE_amps, MAE_phase, MSE_Phase
+  """
+  model.eval()
