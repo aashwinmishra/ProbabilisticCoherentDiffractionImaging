@@ -136,7 +136,7 @@ def predict_and_plot(model: torch.nn.Module,
 
   plt.savefig("Samples.pdf", bbox_inches='tight')
 
-  return amps_mean, amps_var, phis_mean, phis_var
+  return amps_true, phis_true, amps_mean, amps_var, phis_mean, phis_var
 
 
 def evaluate(model: torch.nn.Module, 
@@ -154,4 +154,20 @@ def evaluate(model: torch.nn.Module,
   Returns:
     tuple with MAE_amps, MSE_amps, MAE_phase, MSE_Phase
   """
-  model.eval()
+    model.eval()
+    amps_true, phis_true, amps_mean, amps_var, phis_mean, phis_var = predict_and_plot(model, test_dl, device)
+    amps_mean = torch.from_numpy(amps_mean)
+    phis_mean = torch.from_numpy(phis_mean)
+    amps_true = torch.from_numpy(amps_true)
+    phis_true = torch.from_numpy(phis_true)
+    with torch.inference_mode():
+      amps_mse = torch.nn.functional.mse_loss(amps_mean, amps_true)
+      phis_mse = torch.nn.functional.mse_loss(phis_mean, phis_true)
+      amps_mae = torch.nn.functional.l1_loss(amps_mean, amps_true)
+      phis_mae = torch.nn.functional.l1_loss(phis_mean, phis_true)
+    print("Amp MAE:", amps_mae.detach().item())
+    print("Phi MAE:", phis_mae.detach().item())
+    print("Amp MSE:", amps_mse.detach().item())
+    print("Phi MSE:", phis_mse.detach().item())
+    return amps_mae.detach().item(), amps_mse.detach().item(), phis_mae.detach().item(), phis_mse.detach().item()
+
