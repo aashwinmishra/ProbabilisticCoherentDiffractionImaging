@@ -3,6 +3,9 @@ Functions to train and evaluate deterministic PtychoNN model.
 """
 import torch
 import torch.nn as nn
+import os
+import argparse
+
 
 def train_step(model: torch.nn.Module,
                train_dl: torch.utils.data.DataLoader,
@@ -123,3 +126,4 @@ def train(model: torch.nn.Module,
 # results = train(model, train_dl, val_dl, loss_fn, opt, device, args.num_epochs)
 # model_name = args.model + str(args.num_epochs)
 # save_model("./Models", "model_" + args.model, model)
+
