@@ -117,8 +117,8 @@ def train(model: torch.nn.Module,
     phi_metric_train.append(train_results["phase_metric"])
     amp_metric_val.append(val_results["amp_metric"])
     phi_metric_val.append(val_results["phase_metric"])
-    print(f"Epoch: {epoch+1} Train Amp Loss: {amp_loss_train[-1]} Train Phi Loss: {phi_loss_train[-1]} Val Amp Loss: {amp_loss_val[-1]} Val Phi Loss: {phi_loss_val[-1]}")
-    print(f"Epoch: {epoch+1} Train Amp Metric: {amp_metric_train[-1]} Train Phi Metric: {phi_metric_train[-1]} Val Amp Metric: {amp_metric_val[-1]} Val Phi Metric: {phi_metric_val[-1]}")
+    print(f"Epoch: {epoch+1} Train Amp Loss: {amp_loss_train[-1]:.5f} Train Phi Loss: {phi_loss_train[-1]:.5f} Val Amp Loss: {amp_loss_val[-1]:.5f} Val Phi Loss: {phi_loss_val[-1]:.5f}")
+    print(f"Epoch: {epoch+1} Train Amp Metric: {amp_metric_train[-1]:.5f} Train Phi Metric: {phi_metric_train[-1]:.5f} Val Amp Metric: {amp_metric_val[-1]:.5f} Val Phi Metric: {phi_metric_val[-1]:.5f}")
 
   return {"amp_loss_train": amp_loss_train, "phi_loss_train": phi_loss_train,
           "amp_loss_val": amp_loss_val, "phi_loss_val": phi_loss_val,
