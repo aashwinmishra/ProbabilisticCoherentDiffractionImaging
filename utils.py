@@ -219,3 +219,49 @@ def inspect_ptycho_frames(data: PtychoDataContainer,
         axes[2, i].axis('off')
     plt.tight_layout()
     plt.show()
+
+
+def mc_predictions(model: nn.Module, 
+                   ft_images: torch.tensor, 
+                   num_samples: int=50)->tuple[torch.tensor, ...]:
+  """
+  Performs N forwards passes with active dropout layers to return mean and uncertainty.
+  Note to users: Please use the PtychoMCDropout class instances as inputs.
+  Args:
+    model: a trained instance of the PtychoMCDropout class.
+    ft_images: batch of diffraction patterns.
+    num_samples: Number of forward passes to estimate statistics.
+  Returns:
+    Tuple of mean and standard deviations for the amplitude and phase reconstructions.
+  """
+  model.eval()
+  for m in model.modules():
+    if m.__class__.__name__.startswith('Dropout'):
+      m.train()
+  amp_means, amp_logsigmas, phase_means, phase_logsigmas = [], [], [], []
+  with torch.inference_mode():
+    for _ in range(num_samples):
+      amp_mean, amp_logsigma, phi_mean, phi_logsigma = model(ft_images)
+      amp_means.append(amp_mean)
+      amp_logsigmas.append(amp_logsigma)
+      phase_means.append(phi_mean)
+      phase_logsigmas.append(phi_logsigma)
+  amp_means = torch.stack(amp_means)
+  amp_vars = torch.stack(amp_logsigmas).exp().square()
+  phase_means = torch.stack(phase_means)
+  phase_vars = torch.stack(phase_logsigmas).exp().square()
+
+  final_amp_mean = amp_means.mean(dim=0)
+  final_phase_mean = phase_means.mean(dim=0)
+
+  aleatoric_amp_var = amp_vars.mean(dim=0)
+  aleatoric_phase_var = phase_vars.mean(dim=0)
+
+  epistemic_amp_var = amp_means.var(dim=0)
+  epistemic_phase_var = phase_means.var(dim=0)
+
+  predictive_amp_var = aleatoric_amp_var + epistemic_amp_var
+  predictive_phase_var = aleatoric_phase_var + epistemic_phase_var
+
+  return final_amp_mean, predictive_amp_var.sqrt(), final_phase_mean, predictive_phase_var.sqrt()
+
