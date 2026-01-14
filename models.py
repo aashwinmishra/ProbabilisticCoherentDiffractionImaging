@@ -357,10 +357,10 @@ class PtychoPNN(nn.Module):
     encoded = self.encoder(x)
     amps_decoded = self.amplitude_decoder(encoded)
     amps_mean = self.amplitude_mean_end(amps_decoded)
-    amps_logsigma = self.amplitude_log_sigma(amps_decoded)
+    amps_logsigma = torch.clamp(self.amplitude_log_sigma(amps_decoded), min=-8.0, max=1.0)
     phis_decoded = self.phase_decoder(encoded)
     phis_mean = self.phase_mean_end(phis_decoded)
-    phis_logsigma = self.phase_log_sigma(phis_decoded)
+    phis_logsigma = torch.clamp(self.phase_log_sigma(phis_decoded), min=-8.0, max=1.0)
     phis_mean = phis_mean * np.pi
     return amps_mean, amps_logsigma, phis_mean, phis_logsigma
 
