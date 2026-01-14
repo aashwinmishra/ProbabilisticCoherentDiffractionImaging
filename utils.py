@@ -2,6 +2,7 @@
 Utility functions for model training, evaluation and visualization.
 """
 import torch
+import torch.nn as nn
 import os
 import numpy as np
 import matplotlib.pyplot as plt
