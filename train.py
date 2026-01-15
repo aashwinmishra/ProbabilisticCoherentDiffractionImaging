@@ -33,7 +33,8 @@ elif args.model_type == "PtychoPNN":
 elif args.model_type == "PtychoMCDropout":
   model = PtychoMCDropout().to(device)
 opt = torch.optim.Adam(model.parameters(), lr=args.lr)
-results = train(model, train_dl, val_dl, opt, device, args.num_epochs)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode='min', factor=0.5, patience=10)
+results = train(model, train_dl, val_dl, opt, scheduler, device, args.num_epochs)
 model_name = args.model + str(args.num_epochs)
 save_model("./Models", model_name, model)
 
