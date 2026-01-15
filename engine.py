@@ -3,6 +3,8 @@ Functions to train and evaluate model on the image dataset
 """
 import torch
 import torch.nn as nn
+from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
+from typing import Optional, Union
 
 
 def train_step(model: torch.nn.Module,
