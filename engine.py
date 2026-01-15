@@ -43,9 +43,6 @@ def train_step(model: torch.nn.Module,
     amplitude_metric += amp_metric.detach().item()
     phase_metric += phi_metric.detach().item()
 
-    #scheduler.step()
-
-  model.eval()
   return {"amp_loss": amplitude_loss/len(train_dl),
           "phase_loss": phase_loss/len(train_dl),
           "amp_metric": amplitude_metric/len(train_dl),
@@ -89,8 +86,9 @@ def train(model: torch.nn.Module,
           train_dl: torch.utils.data.DataLoader,
           val_dl: torch.utils.data.DataLoader,
           opt: torch.optim.Optimizer,
-          device: torch.device,
-          num_epochs: int) -> dict:
+          scheduler: Optional[Union[LRScheduler, ReduceLROnPlateau]] = None,
+          device: torch.device=torch.device('cpu'),
+          num_epochs: int=100) -> dict:
   """
   Performs defined number of epochs of training and evaluation for the model on
   the data loaders, returning the loss history on amplitude and phase reconstruction.
@@ -119,7 +117,9 @@ def train(model: torch.nn.Module,
     phi_metric_val.append(val_results["phase_metric"])
     print(f"Epoch: {epoch+1} Train Amp Loss: {amp_loss_train[-1]:.5f} Train Phi Loss: {phi_loss_train[-1]:.5f} Val Amp Loss: {amp_loss_val[-1]:.5f} Val Phi Loss: {phi_loss_val[-1]:.5f}")
     print(f"Epoch: {epoch+1} Train Amp Metric: {amp_metric_train[-1]:.5f} Train Phi Metric: {phi_metric_train[-1]:.5f} Val Amp Metric: {amp_metric_val[-1]:.5f} Val Phi Metric: {phi_metric_val[-1]:.5f}")
-
+    if scheduler:
+      scheduler.step(val_results["phase_metric"])
+    
   return {"amp_loss_train": amp_loss_train, "phi_loss_train": phi_loss_train,
           "amp_loss_val": amp_loss_val, "phi_loss_val": phi_loss_val,
           "amp_metric_train": amp_metric_train, "phi_metric_train": phi_metric_train,
