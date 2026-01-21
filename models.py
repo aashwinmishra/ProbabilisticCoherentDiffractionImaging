@@ -109,10 +109,10 @@ class PtychoMCDropout(nn.Module):
     self.encoder = nn.Sequential(
         contraction_block(in_channels=1, mid_channels=nconv, out_channels=nconv),
         contraction_block(in_channels=nconv, mid_channels=2*nconv, out_channels=2*nconv),
-        contraction_block(in_channels=2*nconv, mid_channels=4*nconv, out_channels=4*nconv, use_dropout=True)
+        contraction_block(in_channels=2*nconv, mid_channels=4*nconv, out_channels=4*nconv)
     )
     self.amplitude_decoder = nn.Sequential(
-        expansion_block(in_channels=4*nconv, mid_channels=4*nconv, out_channels=4*nconv, use_dropout=True),
+        expansion_block(in_channels=4*nconv, mid_channels=4*nconv, out_channels=4*nconv, use_dropout=True, dropout_rate=0.25),
         expansion_block(in_channels=4*nconv, mid_channels=2*nconv, out_channels=2*nconv),
         expansion_block(in_channels=2*nconv, mid_channels=2*nconv, out_channels=2*nconv),
     )
