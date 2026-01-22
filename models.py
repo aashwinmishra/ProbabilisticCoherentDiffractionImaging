@@ -104,7 +104,14 @@ def expansion_block(in_channels: int,
 
 
 class PtychoMCDropout(nn.Module):
-  def __init__(self, nconv: int=32):
+  """
+  Defines the base PtychoNN model, with a PNN output head for aleatoric uncertainty
+  and dropout layers for regularization/epistemic uncertainty.
+  Attributes:
+    nconv: number of feature maps from the first conv layer.
+    dropout_rate: dropout probability for the dropout layers.
+  """
+  def __init__(self, nconv: int=32, dropout_rate: float=0.25):
     super().__init__()
     self.encoder = nn.Sequential(
         contraction_block(in_channels=1, mid_channels=nconv, out_channels=nconv),
@@ -300,14 +307,12 @@ class PtychoNN(nn.Module):
     return amp_loss, phi_loss, amp_metric, phi_metric
 
 
-
-
 class PtychoPNN(nn.Module):
   """
   Defines the Probabilistic Neural Network avatar of the PtychoNN model,
   accounting for aleatoric uncertainty in predictions.
 
-  The network still amps images to the intensity and phase maps, But the returns the 
+  The network still maps images to the intensity and phase maps, But the returns the 
   log sigma of the predictions as well.
   The loss function is a NLL loss and the metric is an MSE.
   
